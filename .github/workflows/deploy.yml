@@ -43,6 +43,20 @@ jobs:
     steps:
       - name: Checkout Código
         uses: actions/checkout@v4
+
+      - name: Asegurar Directorios Base en VPS
+        uses: appleboy/ssh-action@v1.0.1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Crear la carpeta base para el script
+            sudo mkdir -p /home/${{ secrets.SSH_USER }}/app/
+            # Crear la carpeta temporal (si es necesario)
+            mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
+            # Crear la carpeta de switch de Nginx (para el enlace simbólico del script)
+            sudo mkdir -p /etc/nginx/bg_switch/
         
       # PASO 1 (SOLUCIÓN PERMISOS): Copiar archivos de Nginx a una ubicación temporal (sin usar sudo)
       - name: Copiar Archivos de Configuración de Nginx a Temporal
@@ -72,14 +86,14 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. MOVER ARCHIVOS (AQUÍ USAMOS SUDO, GRACIAS A LA CONFIGURACIÓN NOPASSWD)
-            echo "Moviendo archivos de Nginx a /etc/nginx/app/nginx con sudo..."
-            # Aseguramos que el directorio de destino existe
+            # 1. MOVER ARCHIVOS y dar permisos de ejecución al script
+            echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
-            # Movemos los archivos de la carpeta temporal a la ubicación final
             sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/
-            # Limpiamos la carpeta temporal
-            sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
+            sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf || true
+            
+            # Dar permisos de ejecución ahora que el script existe
+            sudo chmod +x /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh 
             
             # 2. INICIO DE SESIÓN EN GHCR
             echo "Iniciando sesión en GHCR y ejecutando script..."
