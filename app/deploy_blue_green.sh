@@ -10,8 +10,9 @@ fi
 ########################################
 
 # Convertir a minúsculas para Docker/GHCR
-IMAGE_NAME="ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')"
-NEW_IMAGE="$IMAGE_NAME:$NEW_TAG" [cite: 8, 9]
+LOWERCASE_REPO=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+IMAGE_NAME="ghcr.io/$LOWERCASE_REPO"
+NEW_IMAGE="$IMAGE_NAME:$NEW_TAG"
 
 APP_DIR="/home/deployer/app"
 ENV_FILE="$APP_DIR/.env"

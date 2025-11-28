@@ -57,20 +57,17 @@ jobs:
             mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
             sudo mkdir -p /etc/nginx/bg_switch/
             
-      # PASO 1: Copiar archivos de Nginx (FIX: Cambio de directorio para garantizar la ruta de origen)
+      # PASO 1: Copiar archivos de Nginx (SOLUCIÓN FINAL: Copia recursiva de la carpeta completa)
       - name: Copiar Archivos de Configuración de Nginx a Temporal
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Ejecutamos un comando local antes de SCP para entrar al directorio
-          # NOTA: Aunque el SCP action está diseñado para manejar la ruta, 
-          # este truco a veces resuelve problemas de contexto de la acción.
-          source: "./" # Copia todo el contenido del directorio actual (que será nginx_configs)
-          target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
-          # Agregamos un comando de pre-ejecución para movernos a la carpeta local antes de copiar
-          pre_command: "cd nginx_configs" # <--- ESTO ES CRÍTICO
+          # Copia toda la carpeta 'nginx_configs'
+          source: "nginx_configs" 
+          # La subimos a la raíz del usuario SSH para evitar problemas de permisos
+          target: "/home/${{ secrets.SSH_USER }}/"
           
       # PASO 2: Copiar el script de despliegue
       - name: Copiar Script de Despliegue al VPS
@@ -95,6 +92,9 @@ jobs:
             # 1. MOVER ARCHIVOS (Ahora los directorios existen)
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
+
+            sudo mv /home/${{ secrets.SSH_USER }}/nginx_configs/*.conf /etc/nginx/app/nginx/ || true
+            sudo rm -r /home/${{ secrets.SSH_USER }}/nginx_configs || true # Limpiamos la carpeta subida
 
             # El comando 'mv' ahora debería funcionar si el SCP de Nginx funcionó.
             sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/ || true
