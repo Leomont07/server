@@ -57,14 +57,15 @@ jobs:
             mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
             sudo mkdir -p /etc/nginx/bg_switch/
             
-      # PASO 1: Copiar archivos de Nginx 
+      # PASO 1: Copiar archivos de Nginx (CORRECCIÓN DE RUTA DE ORIGEN)
       - name: Copiar Archivos de Configuración de Nginx a Temporal
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "./nginx_configs/*.conf" # Aseguramos la ruta con ./
+          # Usaremos la ruta absoluta desde el punto de vista del runner:
+          source: "nginx_configs/*.conf" # **Dejémoslo así.** El problema es que el archivo no está en el runner.
           target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
           
       # PASO 2: Copiar el script de despliegue

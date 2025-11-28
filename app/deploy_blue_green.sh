@@ -55,12 +55,26 @@ docker run -d --name "$INACTIVE_SLOT" \
     --restart unless-stopped \
     "$NEW_IMAGE"
 
-# === FIX DE DIAGNÓSTICO: MOSTRAR LOGS AL INICIAR ===
-echo "Mostrando logs de inicio del contenedor $INACTIVE_SLOT por 5 segundos..."
-docker logs "$INACTIVE_SLOT" --follow &
-PID=$!
-sleep 5
-kill $PID || true
+# 5.1. DIAGNÓSTICO CRÍTICO: Esperar 10s y revisar el estado y logs del contenedor
+echo "Esperando 10s para que el contenedor inicie y capturando logs..."
+sleep 10
+
+# Obtener el estado del contenedor: running, exited, etc.
+STATUS=$(docker inspect -f '{{.State.Status}}' "$INACTIVE_SLOT")
+echo "Estado actual del contenedor $INACTIVE_SLOT: $STATUS"
+
+# Mostrar logs completos para diagnosticar el fallo
+echo "--- LOGS DEL CONTENEDOR $INACTIVE_SLOT ---"
+docker logs "$INACTIVE_SLOT"
+echo "--- FIN DE LOGS ---"
+
+if [ "$STATUS" != "running" ]; then
+    echo "ERROR CRÍTICO: El contenedor $INACTIVE_SLOT no se está ejecutando. ABORTANDO."
+    # Si el contenedor falla al iniciar, eliminamos el contenedor para evitar basura
+    docker stop "$INACTIVE_SLOT" || true
+    docker rm "$INACTIVE_SLOT" || true
+    exit 1
+fi
 
 # 6. Health Check (simulado con un sleep)
 echo "Realizando Health Check en $INACTIVE_SLOT (Puerto $INACTIVE_PORT)..."
