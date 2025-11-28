@@ -2,7 +2,7 @@ name: Despliegue Blue-Green a AWS
 
 on:
   push:
-    branches: [ master ] # O 'master' si es tu rama principal.
+    branches: [ master ] # O 'master'
 
 jobs: 
   build-and-push: 
@@ -24,7 +24,7 @@ jobs:
       - name: Construir y Etiquetar la Imagen Docker
         id: build-image
         run: |
-          # 1. Corregir el nombre del repositorio a minúsculas
+          # Corregir el nombre del repositorio a minúsculas
           LOWERCASE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
           IMAGE_ID=ghcr.io/$LOWERCASE_REPO
           VERSION_TAG=${{ github.sha }}
@@ -43,7 +43,8 @@ jobs:
     steps:
       - name: Checkout Código
         uses: actions/checkout@v4
-
+        
+      # === FIX CRÍTICO: ASEGURAR DIRECTORIOS ANTES DE SCP ===
       - name: Asegurar Directorios Base en VPS
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -51,14 +52,16 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Crear la carpeta base para el script
+            echo "Creando directorios base en el servidor..."
+            # Carpeta para el script
             sudo mkdir -p /home/${{ secrets.SSH_USER }}/app/
-            # Crear la carpeta temporal (si es necesario)
+            # Carpeta temporal para Nginx (no necesita sudo si está en /home)
             mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
-            # Crear la carpeta de switch de Nginx (para el enlace simbólico del script)
+            # Carpeta para el switch de Nginx
             sudo mkdir -p /etc/nginx/bg_switch/
+      # ======================================================
         
-      # PASO 1 (SOLUCIÓN PERMISOS): Copiar archivos de Nginx a una ubicación temporal (sin usar sudo)
+      # PASO 1: Copiar archivos de Nginx a una ubicación temporal (Ahora el directorio existe)
       - name: Copiar Archivos de Configuración de Nginx a Temporal
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -68,17 +71,17 @@ jobs:
           source: "nginx_configs/*.conf"
           target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
           
-      # PASO 2: Copiar el script de despliegue a la carpeta app/
+      # PASO 2: Copiar el script de despliegue a la carpeta app/ (Ahora el directorio existe)
       - name: Copiar Script de Despliegue al VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "app/deploy_blue_green.sh" # <--- ¡RUTA CORREGIDA!
+          source: "app/deploy_blue_green.sh" 
           target: "/home/${{ secrets.SSH_USER }}/app/"
           
-      # PASO 3: Ejecutar comandos con SSH (incluye SUDO para mover archivos)
+      # PASO 3: Ejecutar comandos con SSH
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -86,15 +89,15 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. MOVER ARCHIVOS
+            # 1. MOVER ARCHIVOS (FIN DEL MV: CANNOT STAT)
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
             
-            # El comando 'mv' que falló, con tolerancia a errores.
+            # El comando 'mv' ahora debería encontrar los archivos.
             sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/ || true
             sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf || true
             
-            # Dar permisos de ejecución
+            # Dar permisos de ejecución (FIN DEL NO SUCH FILE OR DIRECTORY)
             sudo chmod +x /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh || true
             
             # 2. INICIO DE SESIÓN EN GHCR
@@ -103,7 +106,7 @@ jobs:
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
             
-            # 3. EJECUCIÓN DEL SCRIPT (¡FIX APLICADO AQUÍ!)
+            # 3. EJECUCIÓN DEL SCRIPT (¡FIX: AÑADIDO EL TAG!)
             export GITHUB_REPOSITORY=${{ github.repository }}
             /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }} 
             
