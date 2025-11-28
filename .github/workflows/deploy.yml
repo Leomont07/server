@@ -103,7 +103,7 @@ jobs:
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
             
-            # 3. EJECUCIÓN DEL SCRIPT (¡VERIFICA ESTA LÍNEA!)
+            # 3. EJECUCIÓN DEL SCRIPT
             export GITHUB_REPOSITORY=${{ github.repository }}
             /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }} 
             
