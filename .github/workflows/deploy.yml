@@ -2,7 +2,7 @@ name: Despliegue Blue-Green a AWS
 
 on:
   push:
-    branches: [ master ] # O 'master'
+    branches: [ master ]
 
 jobs: 
   build-and-push: 
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
         
-      # === PASO 0: CREAR DIRECTORIOS BASE (CRÍTICO) ===
+      # === PASO 0: CREAR DIRECTORIOS BASE ===
       - name: Asegurar Directorios Base en VPS
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -52,21 +52,20 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Esto corrige el 'No such file or directory'
+            # Creamos solo los directorios permanentes necesarios
             sudo mkdir -p /home/${{ secrets.SSH_USER }}/app/
-            mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
             sudo mkdir -p /etc/nginx/bg_switch/
             
-      # PASO 1: Copiar archivos de Nginx (SOLUCIÓN FINAL: Copia recursiva de la carpeta completa)
-      - name: Copiar Archivos de Configuración de Nginx a Temporal
+      # PASO 1: Copiar archivos de Nginx (Ahora van a la raíz del usuario SSH)
+      - name: Copiar Archivos de Configuración de Nginx
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Copia toda la carpeta 'nginx_configs'
+          # Copia toda la carpeta 'nginx_configs' de forma recursiva
           source: "nginx_configs" 
-          # La subimos a la raíz del usuario SSH para evitar problemas de permisos
+          # Target: La carpeta 'nginx_configs' se sube directamente a /home/***/
           target: "/home/${{ secrets.SSH_USER }}/"
           
       # PASO 2: Copiar el script de despliegue
@@ -79,26 +78,21 @@ jobs:
           source: "app/deploy_blue_green.sh" 
           target: "/home/${{ secrets.SSH_USER }}/app/"
 
-      # PASO 3: Ejecutar comandos con SSH (Aquí debe ir la corrección del host)    
+      # PASO 3: Ejecutar comandos con SSH
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
         with:
-          # === ¡FIX CRÍTICO AQUÍ! Estaban faltando estas tres líneas. ===
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # =============================================================
           script: |
-            # 1. MOVER ARCHIVOS (Ahora los directorios existen)
+            # 1. MOVER ARCHIVOS DE NGINX (SOLUCIÓN A mv: cannot stat)
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
 
+            # Movemos los archivos desde la carpeta 'nginx_configs' que se subió en el paso 1
             sudo mv /home/${{ secrets.SSH_USER }}/nginx_configs/*.conf /etc/nginx/app/nginx/ || true
             sudo rm -r /home/${{ secrets.SSH_USER }}/nginx_configs || true # Limpiamos la carpeta subida
-
-            # El comando 'mv' ahora debería funcionar si el SCP de Nginx funcionó.
-            sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/ || true
-            sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf || true
 
             # Dar permisos de ejecución
             sudo chmod +x /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh || true
