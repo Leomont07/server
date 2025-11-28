@@ -52,8 +52,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Creando directorios base en el servidor..."
-            # Asegura la existencia de la carpeta 'app' y 'tmp_nginx_conf'
+            # Esto corrige el 'No such file or directory'
             sudo mkdir -p /home/${{ secrets.SSH_USER }}/app/
             mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
             sudo mkdir -p /etc/nginx/bg_switch/

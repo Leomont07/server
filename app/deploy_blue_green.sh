@@ -49,7 +49,7 @@ docker rm "$INACTIVE_SLOT" || true
 # 5. Iniciar el nuevo contenedor
 echo "Iniciando nuevo contenedor $INACTIVE_SLOT en el puerto $INACTIVE_PORT"
 docker run -d --name "$INACTIVE_SLOT" \
-    --network blue_green_network \  # <--- ESTA LÍNEA ES CLAVE PARA EL 502
+    --network blue_green_network \ # <--- ESTO DEBE ESTAR
     -p "$INACTIVE_PORT:3000" \
     -e "APP_COLOR=$INACTIVE_SLOT" \
     --restart unless-stopped \
