@@ -44,7 +44,7 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
         
-      # === FIX CRÍTICO: ASEGURAR DIRECTORIOS ANTES DE SCP ===
+      # === PASO 0: CREAR DIRECTORIOS BASE (CRÍTICO) ===
       - name: Asegurar Directorios Base en VPS
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -53,25 +53,22 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "Creando directorios base en el servidor..."
-            # Carpeta para el script
+            # Asegura la existencia de la carpeta 'app' y 'tmp_nginx_conf'
             sudo mkdir -p /home/${{ secrets.SSH_USER }}/app/
-            # Carpeta temporal para Nginx (no necesita sudo si está en /home)
             mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
-            # Carpeta para el switch de Nginx
             sudo mkdir -p /etc/nginx/bg_switch/
-      # ======================================================
-        
-      # PASO 1: Copiar archivos de Nginx a una ubicación temporal (Ahora el directorio existe)
+            
+      # PASO 1: Copiar archivos de Nginx 
       - name: Copiar Archivos de Configuración de Nginx a Temporal
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "nginx_configs/*.conf"
+          source: "nginx_configs/*.conf" # El problema es la ruta de ORIGEN, no la de destino
           target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
           
-      # PASO 2: Copiar el script de despliegue a la carpeta app/ (Ahora el directorio existe)
+      # PASO 2: Copiar el script de despliegue
       - name: Copiar Script de Despliegue al VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -89,15 +86,15 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. MOVER ARCHIVOS (FIN DEL MV: CANNOT STAT)
+            # 1. MOVER ARCHIVOS
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
             
-            # El comando 'mv' ahora debería encontrar los archivos.
+            # El comando 'mv' ahora debería funcionar si el SCP de Nginx funcionó.
             sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/ || true
             sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf || true
             
-            # Dar permisos de ejecución (FIN DEL NO SUCH FILE OR DIRECTORY)
+            # Dar permisos de ejecución
             sudo chmod +x /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh || true
             
             # 2. INICIO DE SESIÓN EN GHCR
@@ -106,7 +103,7 @@ jobs:
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
             
-            # 3. EJECUCIÓN DEL SCRIPT (¡FIX: AÑADIDO EL TAG!)
+            # 3. EJECUCIÓN DEL SCRIPT (¡VERIFICA ESTA LÍNEA!)
             export GITHUB_REPOSITORY=${{ github.repository }}
             /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }} 
             
