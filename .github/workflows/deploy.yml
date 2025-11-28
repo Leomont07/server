@@ -64,7 +64,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "nginx_configs/*.conf" # El problema es la ruta de ORIGEN, no la de destino
+          source: "./nginx_configs/*.conf" # Aseguramos la ruta con ./
           target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
           
       # PASO 2: Copiar el script de despliegue

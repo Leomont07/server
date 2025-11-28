@@ -47,15 +47,23 @@ docker stop "$INACTIVE_SLOT" || true
 docker rm "$INACTIVE_SLOT" || true
 
 # 5. Iniciar el nuevo contenedor
-echo "Iniciando nuevo contenedor $INACTIVE_SLOT en el puerto $INACTIVE_PORT"
+echo "Iniciando nuevo contenedor: $INACTIVE_SLOT en el puerto $INACTIVE_PORT..."
 docker run -d --name "$INACTIVE_SLOT" \
-    --network blue_green_network \ # <--- ESTO DEBE ESTAR
+    --network blue_green_network \
     -p "$INACTIVE_PORT:3000" \
     -e "APP_COLOR=$INACTIVE_SLOT" \
     --restart unless-stopped \
     "$NEW_IMAGE"
 
+# === FIX DE DIAGNÓSTICO: MOSTRAR LOGS AL INICIAR ===
+echo "Mostrando logs de inicio del contenedor $INACTIVE_SLOT por 5 segundos..."
+docker logs "$INACTIVE_SLOT" --follow &
+PID=$!
+sleep 5
+kill $PID || true
+
 # 6. Health Check (simulado con un sleep)
+echo "Realizando Health Check en $INACTIVE_SLOT (Puerto $INACTIVE_PORT)..."
 echo "Esperando 10s para que el contenedor inicie..."
 sleep 10
 
