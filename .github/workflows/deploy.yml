@@ -86,16 +86,15 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. MOVER ARCHIVOS y dar permisos de ejecución al script
+            # 1. MOVER ARCHIVOS
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
             
-            # Usamos || true para tolerar si la carpeta temporal está vacía,
-            # pero este paso DEBE funcionar en el despliegue inicial.
+            # El comando 'mv' que falló, con tolerancia a errores.
             sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/ || true
             sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf || true
             
-            # Dar permisos de ejecución ahora que el script existe
+            # Dar permisos de ejecución
             sudo chmod +x /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh || true
             
             # 2. INICIO DE SESIÓN EN GHCR
@@ -104,9 +103,9 @@ jobs:
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
             
-            # 3. EJECUCIÓN DEL SCRIPT (¡FIX: AÑADIDO EL TAG DE LA VERSIÓN!)
+            # 3. EJECUCIÓN DEL SCRIPT (¡FIX APLICADO AQUÍ!)
             export GITHUB_REPOSITORY=${{ github.repository }}
-            /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }}
+            /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }} 
             
             # 4. Limpiar el login
             docker logout ghcr.io
