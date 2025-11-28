@@ -2,10 +2,10 @@ name: Despliegue Blue-Green a AWS
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master ] # O 'master' si es tu rama principal.
 
-jobs:
-  build-and-push:
+jobs: 
+  build-and-push: 
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,7 +24,7 @@ jobs:
       - name: Construir y Etiquetar la Imagen Docker
         id: build-image
         run: |
-          # Convertimos el nombre del repositorio a MINÚSCULAS antes de usarlo
+          # 1. Corregir el nombre del repositorio a minúsculas
           LOWERCASE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
           IMAGE_ID=ghcr.io/$LOWERCASE_REPO
           VERSION_TAG=${{ github.sha }}
@@ -44,27 +44,27 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
         
-      # PASO 1 CORREGIDO: Copiar solo los archivos de Nginx
-      - name: Copiar Archivos de Configuración de Nginx al VPS
+      # PASO 1 (SOLUCIÓN PERMISOS): Copiar archivos de Nginx a una ubicación temporal (sin usar sudo)
+      - name: Copiar Archivos de Configuración de Nginx a Temporal
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "nginx_configs/*.conf" # Copia blue.conf y green.conf
-          target: "/etc/nginx/app/nginx" # Destino para los .conf
-
-      # PASO 2 CORREGIDO: Copiar solo el script de despliegue
+          source: "nginx_configs/*.conf"
+          target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf" # Ubicación temporal
+          
+      # PASO 2: Copiar el script de despliegue a la carpeta app/
       - name: Copiar Script de Despliegue al VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy_blue_green.sh" # Copia el script
-          target: "/home/${{ secrets.SSH_USER }}/app/" # Destino para el script
+          source: "deploy_blue_green.sh"
+          target: "/home/${{ secrets.SSH_USER }}/app/"
           
-      # Ejecutar el script Blue-Green (INCLUYE EL DOCKER LOGIN)
+      # PASO 3: Ejecutar comandos con SSH (incluye SUDO para mover archivos)
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -72,15 +72,24 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. INICIO DE SESIÓN EN GHCR EN EL SERVIDOR EC2
-            echo "Iniciando sesión en GHCR en el servidor..."
+            # 1. MOVER ARCHIVOS (AQUÍ USAMOS SUDO, GRACIAS A LA CONFIGURACIÓN NOPASSWD)
+            echo "Moviendo archivos de Nginx a /etc/nginx/app/nginx con sudo..."
+            # Aseguramos que el directorio de destino existe
+            sudo mkdir -p /etc/nginx/app/nginx/
+            # Movemos los archivos de la carpeta temporal a la ubicación final
+            sudo mv /home/${{ secrets.SSH_USER }}/tmp_nginx_conf/*.conf /etc/nginx/app/nginx/
+            # Limpiamos la carpeta temporal
+            sudo rm -r /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
+            
+            # 2. INICIO DE SESIÓN EN GHCR
+            echo "Iniciando sesión en GHCR y ejecutando script..."
             echo "${{ secrets.CR_TOKEN }}" | docker login ghcr.io \
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
             
-            # 2. EJECUCIÓN DEL SCRIPT
+            # 3. EJECUCIÓN DEL SCRIPT
             export GITHUB_REPOSITORY=${{ github.repository }}
             /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }}
             
-            # 3. Limpiar el login
+            # 4. Limpiar el login
             docker logout ghcr.io
