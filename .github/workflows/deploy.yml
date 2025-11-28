@@ -52,7 +52,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "nginx_configs/*.conf"
-          target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf" # Ubicación temporal
+          target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
           
       # PASO 2: Copiar el script de despliegue a la carpeta app/
       - name: Copiar Script de Despliegue al VPS
@@ -61,7 +61,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy_blue_green.sh"
+          source: "app/deploy_blue_green.sh" # <--- ¡RUTA CORREGIDA!
           target: "/home/${{ secrets.SSH_USER }}/app/"
           
       # PASO 3: Ejecutar comandos con SSH (incluye SUDO para mover archivos)
