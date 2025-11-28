@@ -24,7 +24,9 @@ jobs:
       - name: Construir y Etiquetar la Imagen Docker
         id: build-image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository }}
+          # Convertimos el nombre del repositorio a MINÚSCULAS antes de usarlo
+          LOWERCASE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+          IMAGE_ID=ghcr.io/$LOWERCASE_REPO
           VERSION_TAG=${{ github.sha }}
           
           docker build ./app -t $IMAGE_ID:$VERSION_TAG
