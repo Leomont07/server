@@ -76,13 +76,28 @@ if [ "$STATUS" != "running" ]; then
     exit 1
 fi
 
-# 6. Health Check (simulado con un sleep)
-echo "Realizando Health Check en $INACTIVE_SLOT (Puerto $INACTIVE_PORT)..."
-echo "Esperando 10s para que el contenedor inicie..."
+# 6. DIAGNÓSTICO CRÍTICO: Esperar 10s y revisar el estado y logs del contenedor
+echo "Esperando 10s para que el contenedor inicie (o falle) y capturando logs..."
 sleep 10
 
+# Obtener el estado del contenedor: running, exited, etc.
+STATUS=$(docker inspect -f '{{.State.Status}}' "$INACTIVE_SLOT" 2>/dev/null)
+
+echo "--- LOGS DEL CONTENEDOR $INACTIVE_SLOT ---"
+# Mostramos los logs completos para ver el error de la aplicación (npm start)
+docker logs "$INACTIVE_SLOT"
+echo "--- FIN DE LOGS ---"
+
+if [ "$STATUS" != "running" ]; then
+    echo "ERROR CRÍTICO: El contenedor $INACTIVE_SLOT no se está ejecutando (Estado: $STATUS). Abortando despliegue."
+    # Si falla, salimos para evitar la conmutación de Nginx
+    docker stop "$INACTIVE_SLOT" || true
+    docker rm "$INACTIVE_SLOT" || true
+    exit 1 
+fi
+
 # 7. Realizar el switch de tráfico en Nginx
-echo "Cambiando el tráfico de Nginx a $INACTIVE_SLOT"
+echo "Contenedor $INACTIVE_SLOT en ejecución. Cambiando el tráfico de Nginx..."
 # Eliminar el enlace simbólico anterior y crear uno nuevo
 sudo ln -snf "$INACTIVE_CONF" "$NGINX_CONF_DIR/bg_switch/current_upstream.conf"
 sudo systemctl reload nginx

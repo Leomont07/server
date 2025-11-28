@@ -57,16 +57,20 @@ jobs:
             mkdir -p /home/${{ secrets.SSH_USER }}/tmp_nginx_conf
             sudo mkdir -p /etc/nginx/bg_switch/
             
-      # PASO 1: Copiar archivos de Nginx (CORRECCIÓN DE RUTA DE ORIGEN)
+      # PASO 1: Copiar archivos de Nginx (FIX: Cambio de directorio para garantizar la ruta de origen)
       - name: Copiar Archivos de Configuración de Nginx a Temporal
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Usaremos la ruta absoluta desde el punto de vista del runner:
-          source: "nginx_configs/*.conf" # **Dejémoslo así.** El problema es que el archivo no está en el runner.
+          # Ejecutamos un comando local antes de SCP para entrar al directorio
+          # NOTA: Aunque el SCP action está diseñado para manejar la ruta, 
+          # este truco a veces resuelve problemas de contexto de la acción.
+          source: "./" # Copia todo el contenido del directorio actual (que será nginx_configs)
           target: "/home/${{ secrets.SSH_USER }}/tmp_nginx_conf"
+          # Agregamos un comando de pre-ejecución para movernos a la carpeta local antes de copiar
+          pre_command: "cd nginx_configs" # <--- ESTO ES CRÍTICO
           
       # PASO 2: Copiar el script de despliegue
       - name: Copiar Script de Despliegue al VPS
