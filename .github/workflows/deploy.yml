@@ -1,61 +1,9 @@
-name: Despliegue Blue-Green a AWS
-
-on:
-  push:
-    branches: [ main ] # Se dispara en cada push a la rama 'main'
-
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write # Necesario para subir a GHCR
-    steps:
-      - name: Checkout Código
-        uses: actions/checkout@v4
-
-      - name: Login a GitHub Container Registry (GHCR)
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          # Usamos las variables built-in de GitHub
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Construir y Etiquetar la Imagen Docker
-        id: build-image
-        run: |
-          # Formato de imagen: ghcr.io/usuario/repositorio
-          IMAGE_ID=ghcr.io/${{ github.repository }}
-          VERSION_TAG=${{ github.sha }}
-          
-          # La imagen se construye desde la carpeta 'app/'
-          docker build ./app -t $IMAGE_ID:$VERSION_TAG
-
-          echo "IMAGE_ID=$IMAGE_ID" >> $GITHUB_ENV
-          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
-
-      - name: Push a GHCR
-        run: docker push ${{ env.IMAGE_ID }}:${{ env.VERSION_TAG }}
-
-  deploy:
+deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      # El script de despliegue en el VPS necesita el path corregido
-      - name: Copiar Archivos de Configuración de Nginx y Script al VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Copia los archivos de Nginx
-          source: "nginx_configs/*.conf"
-          target: "/etc/nginx/app/nginx"
-          # Copia el script de despliegue a la carpeta de la app del usuario (por si se actualiza)
-          source: "deploy_blue_green.sh"
-          target: "/home/${{ secrets.SSH_USER }}/app/"
-          
+      # ... (Pasos de Copia de Archivos de Nginx y Script) ...
+
       # Ejecutar el script Blue-Green
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
@@ -64,8 +12,16 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Exportar el repositorio para que el script sepa qué imagen bajar
-            export GITHUB_REPOSITORY=${{ github.repository }}
+            # 1. INICIO DE SESIÓN EN GHCR EN EL SERVIDOR EC2
+            echo "Iniciando sesión en GHCR en el servidor..."
+            # Usamos el token de GitHub para autenticar el 'docker pull'
+            echo "${{ secrets.CR_TOKEN }}" | docker login ghcr.io \
+              --username ${{ secrets.CR_USERNAME }} \
+              --password-stdin
             
-            # Ejecutar el script que está en el home del usuario (ubuntu/deployer)
+            # 2. EJECUCIÓN DEL SCRIPT
+            export GITHUB_REPOSITORY=${{ github.repository }}
             /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }}
+            
+            # 3. Limpiar el login (Opcional, pero buena práctica)
+            docker logout ghcr.io
