@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 2. Instala las dependencias de producción
-RUN npm install --only=production
+RUN npm install --only=production --silent && npm cache clean --force
 
 # 3. Copia el código fuente de la aplicación (la carpeta donde está index.js)
 # NOTA: Usamos el . para copiar todo el contenido del contexto
