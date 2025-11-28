@@ -35,26 +35,34 @@ jobs:
       - name: Push a GHCR
         run: docker push ${{ env.IMAGE_ID }}:${{ env.VERSION_TAG }}
 
-  deploy: # <-- Asegúrate de que esta línea esté alineada con 'build-and-push'
+deploy: 
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Código
         uses: actions/checkout@v4
         
-      # Copia los archivos de switch de Nginx y Script al VPS
-      - name: Copiar Archivos de Configuración al VPS
+      # PASO 1 CORREGIDO: Copiar solo los archivos de Nginx
+      - name: Copiar Archivos de Configuración de Nginx al VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "nginx_configs/*.conf"
-          target: "/etc/nginx/app/nginx"
-          source: "deploy_blue_green.sh"
-          target: "/home/${{ secrets.SSH_USER }}/app/"
+          source: "nginx_configs/*.conf" # Copia blue.conf y green.conf
+          target: "/etc/nginx/app/nginx" # Destino para los .conf
+
+      # PASO 2 CORREGIDO: Copiar solo el script de despliegue
+      - name: Copiar Script de Despliegue al VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "deploy_blue_green.sh" # Copia el script
+          target: "/home/${{ secrets.SSH_USER }}/app/" # Destino para el script
           
-      # Ejecutar el script Blue-Green (INCLUYE EL DOCKER LOGIN CORREGIDO)
+      # Ejecutar el script Blue-Green (INCLUYE EL DOCKER LOGIN)
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -64,7 +72,6 @@ jobs:
           script: |
             # 1. INICIO DE SESIÓN EN GHCR EN EL SERVIDOR EC2
             echo "Iniciando sesión en GHCR en el servidor..."
-            # Autenticación para Docker Pull
             echo "${{ secrets.CR_TOKEN }}" | docker login ghcr.io \
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
