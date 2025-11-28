@@ -44,7 +44,7 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
         
-      # === PASO 0: CREAR DIRECTORIOS BASE ===
+      # === PASO 0: CREAR DIRECTORIOS BASE EN EL SERVIDOR ===
       - name: Asegurar Directorios Base en VPS
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -52,20 +52,20 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Creamos solo los directorios permanentes necesarios
+            # Creamos directorios necesarios para el despliegue y Nginx
             sudo mkdir -p /home/${{ secrets.SSH_USER }}/app/
             sudo mkdir -p /etc/nginx/bg_switch/
             
-      # PASO 1: Copiar archivos de Nginx (Ahora van a la raíz del usuario SSH)
+      # PASO 1: Copiar archivos de Nginx (Solución al error 'mv: cannot stat')
       - name: Copiar Archivos de Configuración de Nginx
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Copia toda la carpeta 'nginx_configs' de forma recursiva
+          # Copia la carpeta 'nginx_configs' entera desde el repositorio local
           source: "nginx_configs" 
-          # Target: La carpeta 'nginx_configs' se sube directamente a /home/***/
+          # Target: La sube a /home/***/
           target: "/home/${{ secrets.SSH_USER }}/"
           
       # PASO 2: Copiar el script de despliegue
@@ -78,7 +78,7 @@ jobs:
           source: "app/deploy_blue_green.sh" 
           target: "/home/${{ secrets.SSH_USER }}/app/"
 
-      # PASO 3: Ejecutar comandos con SSH
+      # PASO 3: Ejecutar comandos con SSH (Instalar Nginx, Login, Ejecutar Script)
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
         with:
@@ -86,7 +86,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. MOVER ARCHIVOS DE NGINX (SOLUCIÓN A mv: cannot stat)
+            # 1. MOVER ARCHIVOS DE NGINX (CORRECCIÓN FINAL DE LA RUTA)
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
 

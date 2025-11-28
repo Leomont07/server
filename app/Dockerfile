@@ -1,27 +1,25 @@
-# Fase de construcción (para reducir el tamaño de la imagen final)
+# Fase de construcción: Builder (Para instalar las dependencias)
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copia los archivos de definición de dependencias
+# 1. Copia solo los archivos de definición de dependencias
+# (Asume que package.json y package-lock.json están en ./app)
 COPY package*.json ./
 
-# Instala las dependencias de producción
+# 2. Instala las dependencias de producción
 RUN npm install --only=production
 
-# Copia el código fuente (src, .env, etc.)
-COPY . .
-
-# Comando de inicio
-# Asumiendo que tu archivo principal está en src/index.js o similar
-CMD ["npm", "start"] 
+# 3. Copia el código fuente de la aplicación (la carpeta donde está index.js)
+# NOTA: Usamos el . para copiar todo el contenido del contexto
+COPY . . 
 
 
 # ----------------------------------------
-# Fase de ejecución (Imagen final más limpia)
+# Fase de ejecución: Final (Imagen limpia)
 FROM node:20-alpine
 
-# El puerto de la aplicación debe ser consistente con lo que se define en el script
+# El puerto de la aplicación
 ENV PORT=3000
 EXPOSE 3000
 
@@ -31,8 +29,9 @@ USER appuser
 
 WORKDIR /app
 
-# Copia los archivos de la fase de construcción
+# Copia TODOS los archivos (incluyendo node_modules y el código fuente)
+# desde la fase 'builder' al directorio de trabajo de la fase final.
 COPY --from=builder /app ./
 
-# Tu aplicación inicia aquí (puede variar, ajusta según tu package.json)
+# Comando de inicio: npm start requiere que index.js esté en el WORKDIR /app
 CMD ["npm", "start"]
