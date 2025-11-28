@@ -81,11 +81,9 @@ jobs:
       - name: Ejecutar Despliegue Blue-Green
         uses: appleboy/ssh-action@v1.0.1
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # ... credenciales ...
           script: |
-            # 1. MOVER ARCHIVOS
+            # 1. MOVER ARCHIVOS (Ahora los directorios existen)
             echo "Moviendo archivos de Nginx y dando permisos al script..."
             sudo mkdir -p /etc/nginx/app/nginx/
             
@@ -102,9 +100,9 @@ jobs:
               --username ${{ secrets.CR_USERNAME }} \
               --password-stdin
             
-            # 3. EJECUCIÓN DEL SCRIPT
+            # 3. EJECUCIÓN DEL SCRIPT (¡FIX ROBUSTO CON GITHUB_SHA!)
             export GITHUB_REPOSITORY=${{ github.repository }}
-            /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ env.VERSION_TAG }} 
+            /home/${{ secrets.SSH_USER }}/app/deploy_blue_green.sh ${{ github.sha }} 
             
             # 4. Limpiar el login
             docker logout ghcr.io
