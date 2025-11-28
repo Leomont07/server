@@ -22,4 +22,6 @@ app.use('/api/auth', authRoutes)
 app.use('/api/service', serviceRoutes)
 app.use('/api/booking', bookingRoutes)
 
-export default app;
+app.listen(port, '0.0.0.0', () => { 
+  console.log(`Aplicación Node.js escuchando en el puerto ${port}`);
+});
